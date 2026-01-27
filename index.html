@@ -182,6 +182,28 @@
           <input id="announcer-volume" type="range" min="0" max="100" value="30" />
         </label>
       </div>
+
+      <div id="multiplayer-section" class="multiplayer-section">
+        <h3>Multiplayer</h3>
+        <label class="field">
+          <span>Username</span>
+          <input id="mp-username" type="text" maxlength="16" placeholder="Player" value="Player" />
+        </label>
+        <label class="field">
+          <span>Room Code</span>
+          <input id="mp-roomcode" type="text" maxlength="6" placeholder="ABC123" style="text-transform: uppercase" />
+        </label>
+        <div class="row">
+          <button id="mp-create" type="button">Create Room</button>
+          <button id="mp-join" type="button">Join Room</button>
+        </div>
+        <div id="mp-status" class="mp-status hidden">
+          <div>Room: <strong id="mp-room-display">------</strong></div>
+          <div>Players: <span id="mp-player-count">1/16</span></div>
+          <button id="mp-leave" class="ghost compact" type="button">Leave Room</button>
+        </div>
+      </div>
+
       <div class="row">
         <button id="start" disabled>Start</button>
         <button id="resume" class="ghost" disabled>Resume</button>

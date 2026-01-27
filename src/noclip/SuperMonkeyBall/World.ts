@@ -106,6 +106,11 @@ export type BallRenderState = {
     visible: boolean;
 };
 
+export type RemoteBallRenderState = BallRenderState & {
+    username?: string;
+    colorIndex?: number;
+};
+
 export type GoalTimerDigits = {
     small: (ModelInterface | null)[];
     large: (ModelInterface | null)[];
@@ -651,6 +656,7 @@ export class World {
     private background: Background;
     private fgObjects: BgObjectInst[] = [];
     private ball: BallInst;
+    private remoteBalls: BallInst[] = [];
     private ballPos = vec3.create();
     private ballRadius = 0;
     private ballVisible = false;
@@ -1195,6 +1201,27 @@ export class World {
         }
     }
 
+    public setRemoteBallStates(states: RemoteBallRenderState[] | null): void {
+        const count = states?.length ?? 0;
+
+        // Create new ball instances if needed
+        while (this.remoteBalls.length < count) {
+            this.remoteBalls.push(new BallInst(this.worldState.modelCache, this.stageData));
+        }
+
+        // Remove excess ball instances
+        while (this.remoteBalls.length > count) {
+            this.remoteBalls.pop();
+        }
+
+        // Update states
+        if (states) {
+            for (let i = 0; i < states.length; i++) {
+                this.remoteBalls[i].setState(states[i]);
+            }
+        }
+    }
+
     public update(viewerInput: Viewer.ViewerRenderInput): void {
         if (this.externalTimeFrames !== null) {
             this.worldState.time.overrideTimeFrames(this.externalTimeFrames, this.externalDeltaFrames);
@@ -1347,6 +1374,11 @@ export class World {
         }
         this.background.prepareToRender(this.worldState, bgCtx);
         this.ball.prepareToRender(this.worldState, stageCtx);
+
+        // Render remote players
+        for (let i = 0; i < this.remoteBalls.length; i++) {
+            this.remoteBalls[i].prepareToRender(this.worldState, stageCtx);
+        }
     }
 
     public getMirrorMode(): MirrorMode {

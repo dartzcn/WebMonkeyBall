@@ -576,3 +576,48 @@ button:disabled {
   padding: 6px 10px;
   font-size: 11px;
 }
+
+
+/* multiplayer UI */
+.multiplayer-section {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.multiplayer-section h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.mp-status {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 6px;
+  background: rgba(100, 200, 100, 0.15);
+  border: 1px solid rgba(100, 200, 100, 0.3);
+}
+
+.mp-status.hidden {
+  display: none;
+}
+
+.mp-status div {
+  margin: 4px 0;
+  font-size: 13px;
+}
+
+#mp-room-display {
+  font-family: monospace;
+  color: var(--accent);
+}
+
+#mp-player-count {
+  color: var(--accent);
+  font-weight: 600;
+}
+

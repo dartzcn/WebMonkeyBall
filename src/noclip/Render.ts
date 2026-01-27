@@ -133,6 +133,11 @@ export type StageTiltRenderState = {
   zrot: number;
 };
 
+export type RemoteBallRenderState = BallRenderState & {
+  username: string;
+  colorIndex: number;
+};
+
 export type GameplaySyncState = {
   timeFrames?: number | null;
   bananaCollectedByAnimGroup?: boolean[][] | null;
@@ -140,6 +145,7 @@ export type GameplaySyncState = {
   jamabars?: JamabarRenderState[] | null;
   animGroupTransforms?: Float32Array[] | null;
   ball?: BallRenderState | null;
+  remoteBalls?: RemoteBallRenderState[] | null;
   goalBags?: GoalBagRenderState[] | null;
   goalTapes?: GoalTapeRenderState[] | null;
   confetti?: ConfettiRenderState[] | null;
@@ -584,6 +590,9 @@ export class Renderer {
     }
     if (state.ball !== undefined) {
       this.world.setBallState(state.ball ?? null);
+    }
+    if (state.remoteBalls !== undefined) {
+      this.world.setRemoteBallStates(state.remoteBalls ?? null);
     }
     if (state.goalBags !== undefined) {
       this.world.setGoalBags(state.goalBags ?? null);

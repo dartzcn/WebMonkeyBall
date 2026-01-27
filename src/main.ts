@@ -3,6 +3,7 @@ import { Game } from './game.js';
 import { AudioManager } from './audio.js';
 import { GAME_SOURCES, S16_TO_RAD, STAGE_BASE_PATHS, type GameSource } from './constants.js';
 import { getStageListForDifficulty } from './course.js';
+import { MultiplayerClient } from './multiplayer/index.js';
 import {
   SMB2_CHALLENGE_ORDER,
   SMB2_STORY_ORDER,
@@ -387,6 +388,9 @@ const game = new Game({
     void handleStageLoaded(stageId);
   },
 });
+
+const multiplayerClient = new MultiplayerClient();
+let mpFrameCounter = 0;
 game.init();
 
 const hudRenderer = new HudRenderer(hudCanvas);
@@ -992,6 +996,17 @@ function renderFrame(now: number) {
 
   game.update(dtSeconds);
 
+  // send position update every 3 frames
+  if (multiplayerClient.isConnected() && !paused) {
+    mpFrameCounter++;
+    if (mpFrameCounter % 3 === 0) {
+      const ballState = game.ball;
+      if (ballState) {
+        multiplayerClient.sendPositionUpdate(ballState, game.stageTimerFrames);
+      }
+    }
+  }
+
   const shouldRender = interpolationEnabled || (now - lastRenderTime) >= RENDER_FRAME_MS;
   if (!shouldRender) {
     return;
@@ -1038,6 +1053,25 @@ function renderFrame(now: number) {
   syncState.bananaCollectedByAnimGroup = null;
   syncState.animGroupTransforms = game.getAnimGroupTransforms(interpolationAlpha);
   syncState.ball = game.getBallRenderState(interpolationAlpha);
+
+  // sync balls
+  const remotePlayers = multiplayerClient.getRemotePlayers();
+  const remoteBalls: Array<any> = [];
+  for (const [playerId, player] of remotePlayers) {
+    const pos = multiplayerClient.getRemotePlayerPosition(playerId);
+    if (pos) {
+      remoteBalls.push({
+        pos: pos.pos,
+        orientation: pos.orientation,
+        radius: 0.5,
+        visible: true,
+        username: player.username,
+        colorIndex: player.colorIndex,
+      });
+    }
+  }
+  syncState.remoteBalls = remoteBalls.length > 0 ? remoteBalls : null;
+
   syncState.goalBags = game.getGoalBagRenderState(interpolationAlpha);
   syncState.goalTapes = game.getGoalTapeRenderState(interpolationAlpha);
   syncState.confetti = game.getConfettiRenderState(interpolationAlpha);

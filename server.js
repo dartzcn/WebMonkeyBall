@@ -15,16 +15,32 @@ app.register(fastifyStatic, {
   dotfiles: 'deny',
 });
 
+// multiplayer server
+let multiplayerServer = null;
+try {
+  const { MultiplayerServer } = require('./dist/server/index.js');
+  multiplayerServer = new MultiplayerServer();
+  app.register(async (fastify) => {
+    await multiplayerServer.register(fastify);
+  });
+  console.log('multiplayer server initialized');
+} catch (err) {
+  console.warn('run npm run build:server', err.message);
+}
+
 async function start() {
   try {
     await app.listen({ port, host });
 
-    console.log(`monkey balls gameplay now at http://${host}:${port}/`);
+    console.log(`monkey balls gameplay is now at http://${host}:${port}/`);
+    if (multiplayerServer) {
+      console.log(`multiplayer WebSocket at ws://${host}:${port}/multiplayer`);
+    }
 
   } catch (err) {
     if (err.code === 'EADDRINUSE') {
       console.error(`ERROR: port ${port} is already in use!`);
-      console.error(`use node serve.js <PORT> to do a different port`);
+      console.error(`use node serve.js <PORT> to choose a different port`);
     } else if (err.code === 'EACCES') {
       console.error(`ERROR: permission denied for port ${port}!`);
       console.error(`run with sudo (unrecommended) or pick a port >= 1024`);
@@ -37,12 +53,18 @@ async function start() {
 
 process.on('SIGINT', async () => {
   console.log('\nserver shutting down...');
+  if (multiplayerServer) {
+    await multiplayerServer.shutdown();
+  }
   await app.close();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   console.log('\nserver shutting down...');
+  if (multiplayerServer) {
+    await multiplayerServer.shutdown();
+  }
   await app.close();
   process.exit(0);
 });
