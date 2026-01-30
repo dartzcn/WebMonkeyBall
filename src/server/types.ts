@@ -10,6 +10,7 @@ export enum MessageType {
   LEAVE = 'leave',
   POSITION_UPDATE = 'position_update',
   STATE_SYNC = 'state_sync',
+  BANANA_COLLECTED = 'banana_collected',
 
   JOINED = 'joined',
   PLAYER_JOINED = 'player_joined',
@@ -94,6 +95,13 @@ export interface StateSyncMessage {
   data: StateSyncData;
 }
 
+export interface BananaCollectedMessage {
+  type: MessageType.BANANA_COLLECTED;
+  version: number;
+  animGroupId: number;
+  index: number;
+}
+
 export interface PlayerInfo {
   id: string;
   username: string;
@@ -153,12 +161,14 @@ export type ServerMessage =
   | PlayerLeftMessage
   | HostChangedMessage
   | SyncStateMessage
+  | BananaCollectedMessage
   | ErrorMessage;
 
 export type ClientMessage =
   | JoinMessage
   | LeaveMessage
-  | StateSyncMessage;
+  | StateSyncMessage
+  | BananaCollectedMessage;
 
 export function generateRoomId(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';

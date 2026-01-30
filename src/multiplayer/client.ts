@@ -13,6 +13,7 @@ import {
   type StateSyncData,
   type RemotePlayer,
   type PositionSnapshot,
+  type BananaCollectedMessage,
 } from './types.js';
 
 export class MultiplayerClient {
@@ -32,6 +33,7 @@ export class MultiplayerClient {
   private onPlayerLeft?: (playerId: string) => void;
   private onHostChanged?: (newHostId: string) => void;
   private onError?: (code: string, message: string) => void;
+  private onBananaCollected?: (animGroupId: number, index: number) => void;
 
   constructor() {}
 
@@ -184,6 +186,26 @@ export class MultiplayerClient {
     this.onError = callback;
   }
 
+  setOnBananaCollected(callback: (animGroupId: number, index: number) => void): void {
+    this.onBananaCollected = callback;
+  }
+
+  sendBananaCollected(animGroupId: number, index: number): void {
+    if (this.state !== ConnectionState.IN_ROOM || !this.socket) {
+      return;
+    }
+
+    const message = {
+      type: MessageType.BANANA_COLLECTED,
+      version: PROTOCOL_VERSION,
+      animGroupId,
+      index,
+    };
+
+    this.socket.send(JSON.stringify(message));
+    console.log(`sent banana collected: animGroupId=${animGroupId}, index=${index}`);
+  }
+
   private setState(newState: ConnectionState): void {
     this.state = newState;
     if (this.onStateChange) {
@@ -300,6 +322,9 @@ export class MultiplayerClient {
       case MessageType.SYNC_STATE:
         this.handleSyncState(message as SyncStateMessage);
         break;
+      case MessageType.BANANA_COLLECTED:
+        this.handleBananaCollected(message as BananaCollectedMessage);
+        break;
       case MessageType.ERROR:
         this.handleError(message as ErrorMessage);
         break;
@@ -363,6 +388,13 @@ export class MultiplayerClient {
   private handleSyncState(message: SyncStateMessage): void {
     this.pendingStateSync = message.data;
     console.log(`state sync: stage ${message.data.stageId}`);
+  }
+
+  private handleBananaCollected(message: BananaCollectedMessage): void {
+    console.log(`banana collected: animGroupId=${message.animGroupId}, index=${message.index}`);
+    if (this.onBananaCollected) {
+      this.onBananaCollected(message.animGroupId, message.index);
+    }
   }
 
   private handleError(message: ErrorMessage): void {

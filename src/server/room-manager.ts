@@ -286,6 +286,20 @@ export class RoomManager {
     }
   }
 
+  broadcastBananaCollected(playerId: string, animGroupId: number, index: number): void {
+    const roomId = this.playerToRoom.get(playerId);
+    if (!roomId) return;
+
+    console.log(`broadcasting banana collected to room ${roomId}: animGroupId=${animGroupId}, index=${index}`);
+
+    this.broadcastToRoom(roomId, {
+      type: MessageType.BANANA_COLLECTED,
+      version: PROTOCOL_VERSION,
+      animGroupId,
+      index,
+    }, playerId); // exclude sender
+  }
+
   private getRoomPlayerList(room: Room): PlayerInfo[] {
     return Array.from(room.players.values()).map((player) => ({
       id: player.id,

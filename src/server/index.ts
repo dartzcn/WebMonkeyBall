@@ -4,6 +4,7 @@ import {
   type JoinMessage,
   type LeaveMessage,
   type StateSyncMessage,
+  type BananaCollectedMessage,
   MessageType,
   ErrorCode,
   PROTOCOL_VERSION,
@@ -51,7 +52,7 @@ export class MultiplayerServer {
         } else {
           const message = JSON.parse(data.toString());
           console.log('received:', message.type, message);
-          this.handleMessage(socket, message, (id) => {
+          this.handleMessage(socket, message, playerId, (id) => {
             playerId = id;
             console.log('player id set:', id.slice(0, 8));
           });
@@ -83,6 +84,7 @@ export class MultiplayerServer {
   private handleMessage(
     socket: any,
     message: any,
+    playerId: string | null,
     setPlayerId: (id: string) => void
   ): void {
     if (message.version !== PROTOCOL_VERSION) {
@@ -102,6 +104,10 @@ export class MultiplayerServer {
 
       case MessageType.STATE_SYNC:
         this.handleStateSync(message as StateSyncMessage);
+        break;
+
+      case MessageType.BANANA_COLLECTED:
+        this.handleBananaCollected(message as BananaCollectedMessage, playerId);
         break;
 
       default:
@@ -137,6 +143,15 @@ export class MultiplayerServer {
 
   private handleStateSync(message: StateSyncMessage): void {
     // stub
+  }
+
+  private handleBananaCollected(message: BananaCollectedMessage, playerId: string | null): void {
+    if (!playerId) {
+      console.warn('banana collected but no playerId');
+      return;
+    }
+    console.log(`banana collected: animGroupId=${message.animGroupId}, index=${message.index}`);
+    this.roomManager.broadcastBananaCollected(playerId, message.animGroupId, message.index);
   }
 
   private sendError(socket: any, code: ErrorCode, message: string): void {

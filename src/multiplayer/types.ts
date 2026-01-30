@@ -14,6 +14,7 @@ export enum MessageType {
   JOIN = 'join',
   LEAVE = 'leave',
   STATE_SYNC = 'state_sync',
+  BANANA_COLLECTED = 'banana_collected',
 
   // server -> client
   JOINED = 'joined',
@@ -122,10 +123,18 @@ export interface ErrorMessage {
   message: string;
 }
 
+export interface BananaCollectedMessage {
+  type: MessageType.BANANA_COLLECTED;
+  version: number;
+  animGroupId: number;
+  index: number;
+}
+
 export type ServerMessage =
   | JoinedMessage
   | PlayerJoinedMessage
   | PlayerLeftMessage
   | HostChangedMessage
   | SyncStateMessage
+  | BananaCollectedMessage
   | ErrorMessage;

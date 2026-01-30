@@ -37,6 +37,7 @@ import type {
   StageTiltRenderState,
   SwitchRenderState,
 } from './noclip/Render.js';
+import type { MultiplayerClient } from './multiplayer/index.js';
 
 const STAGE_BASE_PATH = STAGE_BASE_PATHS[GAME_SOURCES.SMB1];
 const MAX_FRAME_DELTA = 5;
@@ -168,6 +169,7 @@ type GameOptions = {
   stageBasePath?: string;
   gameSource?: GameSource;
   audio?: AudioManager;
+  multiplayerClient?: MultiplayerClient;
 };
 
 export type BallRenderState = {
@@ -260,6 +262,7 @@ export class Game {
   public stageBasePath: string;
   public gameSource: GameSource;
   public audio: AudioManager | null;
+  public multiplayerClient: MultiplayerClient | null;
 
   public input: Input | null;
   public world: World | null;
@@ -333,6 +336,7 @@ export class Game {
     stageBasePath,
     gameSource,
     audio,
+    multiplayerClient,
   }: GameOptions = {}) {
     this.hud = hud ?? null;
     this.onReadyToResume = onReadyToResume;
@@ -342,6 +346,7 @@ export class Game {
     this.gameSource = gameSource ?? GAME_SOURCES.SMB1;
     this.stageBasePath = stageBasePath ?? STAGE_BASE_PATHS[this.gameSource];
     this.audio = audio ?? null;
+    this.multiplayerClient = multiplayerClient ?? null;
 
     this.input = null;
     this.world = null;
@@ -1568,9 +1573,50 @@ export class Game {
       this.ball.bananas += bananaValueForType(banana.type);
       this.score += bananaPointValueForType(banana.type);
       void this.audio?.playBananaCollect(isBananaBunch(banana.type));
+
+      // Send multiplayer banana collection event
+      if (this.multiplayerClient?.isConnected() && this.bananaGroups) {
+        const group = this.bananaGroups[banana.animGroupId];
+        if (group) {
+          const bananaIndex = group.indexOf(banana);
+          if (bananaIndex !== -1) {
+            this.multiplayerClient.sendBananaCollected(banana.animGroupId, bananaIndex);
+          }
+        }
+      }
+
       collectedAny = true;
     }
     return collectedAny;
+  }
+
+  handleRemoteBananaCollected(animGroupId: number, index: number): void {
+    if (!this.bananaGroups || !this.stageRuntime || !this.ball) {
+      return;
+    }
+
+    const group = this.bananaGroups[animGroupId];
+    if (!group || index < 0 || index >= group.length) {
+      console.warn(`invalid banana: animGroupId=${animGroupId}, index=${index}`);
+      return;
+    }
+
+    const banana = group[index];
+    if (banana.collected) {
+      return; 
+    }
+
+    banana.collected = true;
+    (banana as any).state = 0;
+    (banana as any).flags = 0;
+
+    if (this.bananasLeft > 0) {
+      this.bananasLeft -= 1;
+    }
+    this.ball.bananas += bananaValueForType((banana as any).type);
+    this.score += bananaPointValueForType((banana as any).type);
+
+    console.log(`remote banana collected: animGroupId=${animGroupId}, index=${index}`);
   }
 
   handleInput() {

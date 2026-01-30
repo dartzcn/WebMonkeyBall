@@ -3,7 +3,7 @@ import { Game } from './game.js';
 import { AudioManager } from './audio.js';
 import { GAME_SOURCES, S16_TO_RAD, STAGE_BASE_PATHS, type GameSource } from './constants.js';
 import { getStageListForDifficulty } from './course.js';
-import { MultiplayerClient } from './multiplayer/index.js';
+import { MultiplayerClient, MultiplayerUI } from './multiplayer/index.js';
 import {
   SMB2_CHALLENGE_ORDER,
   SMB2_STORY_ORDER,
@@ -371,8 +371,11 @@ let viewerInput: {
 } | null = null;
 
 const audio = new AudioManager();
+const multiplayerClient = new MultiplayerClient();
+const multiplayerUI = new MultiplayerUI(multiplayerClient);
 const game = new Game({
   audio,
+  multiplayerClient,
   onReadyToResume: () => {
     resumeButton.disabled = false;
   },
@@ -389,7 +392,10 @@ const game = new Game({
   },
 });
 
-const multiplayerClient = new MultiplayerClient();
+multiplayerClient.setOnBananaCollected((animGroupId, index) => {
+  game.handleRemoteBananaCollected(animGroupId, index);
+});
+
 let mpFrameCounter = 0;
 game.init();
 
