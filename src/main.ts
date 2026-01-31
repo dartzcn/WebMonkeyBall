@@ -154,6 +154,7 @@ function setOverlayVisible(visible: boolean) {
   updateMobileMenuButtonVisibility();
   updateFullscreenButtonVisibility();
   syncTouchPreviewVisibility();
+  updateStartButtonState();
 }
 
 const STAGE_FADE_MS = 333;
@@ -396,6 +397,36 @@ multiplayerClient.setOnBananaCollected((animGroupId, index) => {
   game.handleRemoteBananaCollected(animGroupId, index);
 });
 
+multiplayerClient.setOnGoalReached((goalType) => {
+  game.handleRemoteGoalReached(goalType);
+});
+
+multiplayerClient.setOnBonusClear(() => {
+  console.log('remote bonus clear - triggering perfect sequence');
+  game.beginBonusClearSequence();
+});
+
+multiplayerClient.setOnPlayerJoined((player) => {
+  console.log(`player joined: ${player.username}`);
+  // host will sync stage to players when player joins
+  if (multiplayerClient.isHostPlayer()) {
+    const stateSync = game.getCurrentStateSync();
+    if (stateSync) {
+      multiplayerClient.sendStateSync(stateSync);
+    }
+  }
+});
+
+multiplayerClient.setOnStateChange((state) => {
+  console.log(`multiplayer state changed: ${state}`);
+  updateStartButtonState();
+});
+
+multiplayerClient.setOnHostChanged((newHostId) => {
+  console.log(`host changed to: ${newHostId}`);
+  updateStartButtonState();
+});
+
 let mpFrameCounter = 0;
 game.init();
 
@@ -564,6 +595,13 @@ async function handleStageLoaded(stageId: number) {
   lastTime = performance.now();
   updateMobileMenuButtonVisibility();
   maybeStartSmb2LikeStageFade();
+
+  if (multiplayerClient.isHostPlayer()) {
+    const stateSync = game.getCurrentStateSync();
+    if (stateSync) {
+      multiplayerClient.sendStateSync(stateSync);
+    }
+  }
 }
 
 function setSelectOptions(select: HTMLSelectElement, values: { value: string; label: string }[]) {
@@ -691,6 +729,36 @@ async function startStage(
     activeGameSource !== GAME_SOURCES.SMB1 && hasSmb2LikeMode(difficulty) ? difficulty.mode : null;
   void audio.resume();
   await game.start(difficulty);
+}
+
+async function startFromStateSync(stateSync: any) {
+  console.log('starting game from state sync');
+  setOverlayVisible(false);
+  resumeButton.disabled = true;
+  if (hudStatus) {
+    hudStatus.textContent = '';
+  }
+
+  const difficulty = activeGameSource === GAME_SOURCES.SMB2
+    ? { mode: 'challenge' as const, difficulty: 'beginner' as const, stageIndex: 0 }
+    : activeGameSource === GAME_SOURCES.MB2WS
+      ? { mode: 'challenge' as const, difficulty: 'beginner' as const, stageIndex: 0 }
+      : { difficulty: 'beginner', stageIndex: 0 };
+
+  currentSmb2LikeMode =
+    activeGameSource !== GAME_SOURCES.SMB1 && hasSmb2LikeMode(difficulty) ? difficulty.mode : null;
+  void audio.resume();
+  await game.start(difficulty);
+
+  // Now load the actual stage from state sync
+  if (stateSync.stageId !== game.stage?.stageId) {
+    await game.loadStage(stateSync.stageId);
+  }
+
+  // Apply course progression state
+  if (stateSync.courseState) {
+    game.applyCourseState(stateSync.courseState);
+  }
 }
 
 function bindVolumeControl(
@@ -984,6 +1052,22 @@ function renderFrame(now: number) {
   updateInputPreview();
   updateGamepadCalibration();
 
+  const stateSync = multiplayerClient.pollStateSync();
+  if (stateSync) {
+    if (!running && !multiplayerClient.isHostPlayer()) {
+      void startFromStateSync(stateSync);
+    } else if (running && stateSync.stageId !== game.stage?.stageId) {
+      console.log(`loading stage ${stateSync.stageId} from state sync`);
+      void game.loadStage(stateSync.stageId);
+
+      if (stateSync.courseState) {
+        game.applyCourseState(stateSync.courseState);
+      }
+    } else if (running && stateSync.courseState) {
+      game.applyCourseState(stateSync.courseState);
+    }
+  }
+
   if (!running || !viewerInput || !camera) {
     lastTime = now;
     return;
@@ -1131,8 +1215,28 @@ function updateGyroHelper() {
   gyroHelperDevice?.classList.toggle('at-limit', atLimit);
 }
 
+function updateStartButtonState() {
+  const isHost = multiplayerClient.isHostPlayer();
+  const isConnected = multiplayerClient.isConnected();
+  const hasPendingSync = multiplayerClient.hasPendingStateSync();
+
+  if (!isConnected) {
+    startButton.disabled = false;
+    startButton.textContent = 'Start';
+  } else if (running || hasPendingSync) {
+    startButton.disabled = false;
+    startButton.textContent = 'Start';
+  } else if (isHost) {
+    startButton.disabled = false;
+    startButton.textContent = 'Start (Host)';
+  } else {
+    startButton.disabled = true;
+    startButton.textContent = 'Waiting for host...';
+  }
+}
+
 setOverlayVisible(true);
-startButton.disabled = false;
+updateStartButtonState();
 
 updateSmb2ChallengeStages();
 updateSmb2StoryOptions();
@@ -1265,6 +1369,17 @@ if (interpolationToggle) {
 }
 
 startButton.addEventListener('click', () => {
+  if (!running && multiplayerClient.isConnected() && !multiplayerClient.isHostPlayer()) {
+    console.log('Only the host can start a new game');
+    if (hudStatus) {
+      hudStatus.textContent = 'Only the host can start a new game';
+      setTimeout(() => {
+        if (hudStatus) hudStatus.textContent = '';
+      }, 3000);
+    }
+    return;
+  }
+
   activeGameSource = (gameSourceSelect?.value as GameSource) || GAME_SOURCES.SMB1;
   const difficulty = activeGameSource === GAME_SOURCES.SMB2
     ? buildSmb2CourseConfig()

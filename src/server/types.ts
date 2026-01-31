@@ -11,6 +11,8 @@ export enum MessageType {
   POSITION_UPDATE = 'position_update',
   STATE_SYNC = 'state_sync',
   BANANA_COLLECTED = 'banana_collected',
+  GOAL_REACHED = 'goal_reached',
+  BONUS_CLEAR = 'bonus_clear',
 
   JOINED = 'joined',
   PLAYER_JOINED = 'player_joined',
@@ -87,6 +89,12 @@ export interface StateSyncData {
     animGroupId: number;
     pressed: boolean;
   }>;
+  courseState?: {
+    currentIndex?: number;
+    currentFloor?: number;
+    currentStageName?: string;
+    scriptIndex?: number;
+  };
 }
 
 export interface StateSyncMessage {
@@ -102,6 +110,17 @@ export interface BananaCollectedMessage {
   index: number;
 }
 
+export interface GoalReachedMessage {
+  type: MessageType.GOAL_REACHED;
+  version: number;
+  goalType: string;
+}
+
+export interface BonusClearMessage {
+  type: MessageType.BONUS_CLEAR;
+  version: number;
+}
+
 export interface PlayerInfo {
   id: string;
   username: string;
@@ -115,6 +134,7 @@ export interface JoinedMessage {
   roomId: string;
   isHost: boolean;
   players: PlayerInfo[];
+  stageState: StateSyncData | null;
 }
 
 export interface PlayerJoinedMessage {
@@ -162,13 +182,17 @@ export type ServerMessage =
   | HostChangedMessage
   | SyncStateMessage
   | BananaCollectedMessage
+  | GoalReachedMessage
+  | BonusClearMessage
   | ErrorMessage;
 
 export type ClientMessage =
   | JoinMessage
   | LeaveMessage
   | StateSyncMessage
-  | BananaCollectedMessage;
+  | BananaCollectedMessage
+  | GoalReachedMessage
+  | BonusClearMessage;
 
 export function generateRoomId(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';

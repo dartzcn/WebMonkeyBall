@@ -14,6 +14,8 @@ import {
   type RemotePlayer,
   type PositionSnapshot,
   type BananaCollectedMessage,
+  type GoalReachedMessage,
+  type BonusClearMessage,
 } from './types.js';
 
 export class MultiplayerClient {
@@ -34,6 +36,8 @@ export class MultiplayerClient {
   private onHostChanged?: (newHostId: string) => void;
   private onError?: (code: string, message: string) => void;
   private onBananaCollected?: (animGroupId: number, index: number) => void;
+  private onGoalReached?: (goalType: string) => void;
+  private onBonusClear?: () => void;
 
   constructor() {}
 
@@ -126,6 +130,7 @@ export class MultiplayerClient {
     };
 
     this.socket.send(JSON.stringify(message));
+    console.log(`sent state sync: stageId=${data.stageId}`);
   }
 
   getRemotePlayers(): Map<string, RemotePlayer> {
@@ -144,6 +149,10 @@ export class MultiplayerClient {
     const data = this.pendingStateSync;
     this.pendingStateSync = null;
     return data;
+  }
+
+  hasPendingStateSync(): boolean {
+    return this.pendingStateSync !== null;
   }
 
   isConnected(): boolean {
@@ -190,6 +199,14 @@ export class MultiplayerClient {
     this.onBananaCollected = callback;
   }
 
+  setOnGoalReached(callback: (goalType: string) => void): void {
+    this.onGoalReached = callback;
+  }
+
+  setOnBonusClear(callback: () => void): void {
+    this.onBonusClear = callback;
+  }
+
   sendBananaCollected(animGroupId: number, index: number): void {
     if (this.state !== ConnectionState.IN_ROOM || !this.socket) {
       return;
@@ -204,6 +221,35 @@ export class MultiplayerClient {
 
     this.socket.send(JSON.stringify(message));
     console.log(`sent banana collected: animGroupId=${animGroupId}, index=${index}`);
+  }
+
+  sendGoalReached(goalType: string): void {
+    if (this.state !== ConnectionState.IN_ROOM || !this.socket) {
+      return;
+    }
+
+    const message = {
+      type: MessageType.GOAL_REACHED,
+      version: PROTOCOL_VERSION,
+      goalType,
+    };
+
+    this.socket.send(JSON.stringify(message));
+    console.log(`sent goal reached: goalType=${goalType}`);
+  }
+
+  sendBonusClear(): void {
+    if (this.state !== ConnectionState.IN_ROOM || !this.socket) {
+      return;
+    }
+
+    const message = {
+      type: MessageType.BONUS_CLEAR,
+      version: PROTOCOL_VERSION,
+    };
+
+    this.socket.send(JSON.stringify(message));
+    console.log(`sent bonus clear`);
   }
 
   private setState(newState: ConnectionState): void {
@@ -325,6 +371,12 @@ export class MultiplayerClient {
       case MessageType.BANANA_COLLECTED:
         this.handleBananaCollected(message as BananaCollectedMessage);
         break;
+      case MessageType.GOAL_REACHED:
+        this.handleGoalReached(message as GoalReachedMessage);
+        break;
+      case MessageType.BONUS_CLEAR:
+        this.handleBonusClear(message as BonusClearMessage);
+        break;
       case MessageType.ERROR:
         this.handleError(message as ErrorMessage);
         break;
@@ -344,6 +396,12 @@ export class MultiplayerClient {
 
     console.log(`joined room ${this.roomId} as ${this.isHost ? 'HOST' : 'CLIENT'}`);
     console.log(`players: ${message.players.map(p => p.username).join(', ')}`);
+
+    // if joining as non-host and there's stage state, sync to host's level
+    if (!this.isHost && message.stageState) {
+      console.log(`syncing to host's level: stageId=${message.stageState.stageId}`);
+      this.handleSyncState({ type: MessageType.SYNC_STATE, version: PROTOCOL_VERSION, data: message.stageState });
+    }
   }
 
   private handlePlayerJoined(message: PlayerJoinedMessage): void {
@@ -394,6 +452,20 @@ export class MultiplayerClient {
     console.log(`banana collected: animGroupId=${message.animGroupId}, index=${message.index}`);
     if (this.onBananaCollected) {
       this.onBananaCollected(message.animGroupId, message.index);
+    }
+  }
+
+  private handleGoalReached(message: GoalReachedMessage): void {
+    console.log(`goal reached: goalType=${message.goalType}`);
+    if (this.onGoalReached) {
+      this.onGoalReached(message.goalType);
+    }
+  }
+
+  private handleBonusClear(message: BonusClearMessage): void {
+    console.log(`bonus clear received`);
+    if (this.onBonusClear) {
+      this.onBonusClear();
     }
   }
 

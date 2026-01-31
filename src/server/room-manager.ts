@@ -127,6 +127,7 @@ export class RoomManager {
       roomId,
       isHost,
       players: this.getRoomPlayerList(room),
+      stageState: room.lastStateSync, // send current stage
     });
 
     this.broadcastToRoom(
@@ -298,6 +299,55 @@ export class RoomManager {
       animGroupId,
       index,
     }, playerId); // exclude sender
+  }
+
+  broadcastGoalReached(playerId: string, goalType: string): void {
+    const roomId = this.playerToRoom.get(playerId);
+    if (!roomId) return;
+
+    console.log(`broadcasting goal reached to room ${roomId}: goalType=${goalType}`);
+
+    this.broadcastToRoom(roomId, {
+      type: MessageType.GOAL_REACHED,
+      version: PROTOCOL_VERSION,
+      goalType,
+    });
+  }
+
+  broadcastBonusClear(playerId: string): void {
+    const roomId = this.playerToRoom.get(playerId);
+    if (!roomId) return;
+
+    console.log(`broadcasting bonus clear to room ${roomId}`);
+
+    this.broadcastToRoom(roomId, {
+      type: MessageType.BONUS_CLEAR,
+      version: PROTOCOL_VERSION,
+    });
+  }
+
+  broadcastStateSync(playerId: string, stateData: StateSyncData): void {
+    const roomId = this.playerToRoom.get(playerId);
+    if (!roomId) return;
+
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+
+    if (room.hostId !== playerId) {
+      console.warn(`non-host player ${playerId} attempted to send state sync`);
+      return;
+    }
+
+    console.log(`broadcasting state sync to room ${roomId}: stageId=${stateData.stageId}`);
+
+    room.lastStateSync = stateData;
+    room.currentStageId = stateData.stageId;
+
+    this.broadcastToRoom(roomId, {
+      type: MessageType.SYNC_STATE,
+      version: PROTOCOL_VERSION,
+      data: stateData,
+    });
   }
 
   private getRoomPlayerList(room: Room): PlayerInfo[] {

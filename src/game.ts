@@ -1348,6 +1348,11 @@ export class Game {
     this.goalSkipTimerFrames = GOAL_SKIP_TOTAL_FRAMES;
     this.goalInfo = null;
     startGoal(this.ball);
+
+    if (this.multiplayerClient) {
+      this.multiplayerClient.sendBonusClear();
+    }
+
     void this.audio?.playAnnouncerPerfect();
   }
 
@@ -1603,7 +1608,7 @@ export class Game {
 
     const banana = group[index];
     if (banana.collected) {
-      return; 
+      return;
     }
 
     banana.collected = true;
@@ -1617,6 +1622,97 @@ export class Game {
     this.score += bananaPointValueForType((banana as any).type);
 
     console.log(`remote banana collected: animGroupId=${animGroupId}, index=${index}`);
+  }
+
+  handleRemoteGoalReached(goalType: string): void {
+    console.log(`remote goal reached: goalType=${goalType}`);
+
+    // we're gonna be lazy and do it like this
+    const fakeGoalHit = { goalType };
+    this.beginGoalSequence(fakeGoalHit);
+  }
+
+  applyCourseState(courseState: any): void {
+    if (!this.course || !courseState) {
+      return;
+    }
+
+    const courseAny = this.course as any;
+
+    if (courseState.currentIndex !== undefined) {
+      courseAny.currentIndex = courseState.currentIndex;
+    }
+    if (courseState.currentFloor !== undefined) {
+      courseAny.currentFloor = courseState.currentFloor;
+    }
+    if (courseState.currentStageName !== undefined) {
+      courseAny.currentStageName = courseState.currentStageName;
+    }
+    if (courseState.scriptIndex !== undefined) {
+      courseAny.scriptIndex = courseState.scriptIndex;
+    }
+
+    console.log(`applied course state: floor=${courseState.currentFloor}, index=${courseState.currentIndex}, stageName=${courseState.currentStageName}`);
+  }
+
+  getCurrentStateSync(): any {
+    if (!this.stage || !this.stageRuntime) {
+      return null;
+    }
+
+    const bananas: Array<{ animGroupId: number; index: number; collected: boolean }> = [];
+    if (this.bananaGroups) {
+      for (let animGroupId = 0; animGroupId < this.bananaGroups.length; animGroupId++) {
+        const group = this.bananaGroups[animGroupId];
+        if (group) {
+          for (let index = 0; index < group.length; index++) {
+            const banana = group[index];
+            bananas.push({
+              animGroupId,
+              index,
+              collected: banana.collected,
+            });
+          }
+        }
+      }
+    }
+
+    const switches: Array<{ animGroupId: number; pressed: boolean }> = [];
+    const stageRuntimeAny = this.stageRuntime as any;
+    if (stageRuntimeAny.switches) {
+      for (let i = 0; i < stageRuntimeAny.switches.length; i++) {
+        const sw = stageRuntimeAny.switches[i];
+        switches.push({
+          animGroupId: sw.animGroupIndex ?? 0,
+          pressed: sw.pressed ?? false,
+        });
+      }
+    }
+
+    const courseState: any = {};
+    if (this.course) {
+      const courseAny = this.course as any;
+      if (courseAny.currentIndex !== undefined) {
+        courseState.currentIndex = courseAny.currentIndex;
+      }
+      if (courseAny.currentFloor !== undefined) {
+        courseState.currentFloor = courseAny.currentFloor;
+      }
+      if (courseAny.currentStageName !== undefined) {
+        courseState.currentStageName = courseAny.currentStageName;
+      }
+      if (courseAny.scriptIndex !== undefined) {
+        courseState.scriptIndex = courseAny.scriptIndex;
+      }
+    }
+
+    return {
+      stageId: this.stage.stageId,
+      stageTimerFrames: this.stageTimerFrames,
+      bananas,
+      switches,
+      courseState,
+    };
   }
 
   handleInput() {
@@ -1657,13 +1753,20 @@ export class Game {
     }
     this.goalInfo = goalHit;
     const timeRemaining = Math.max(0, this.stageTimeLimitFrames - this.stageTimerFrames);
-    this.score += computeGoalScore(goalHit?.goalType ?? this.stage.goals?.[0]?.type ?? 'B', timeRemaining, this.stageTimeLimitFrames);
+    const goalType = goalHit?.goalType ?? this.stage.goals?.[0]?.type ?? 'B';
+    this.score += computeGoalScore(goalType, timeRemaining, this.stageTimeLimitFrames);
     if (this.score > 999999999) {
       this.score = 999999999;
     }
     this.goalTimerFrames = GOAL_SEQUENCE_FRAMES;
     this.goalSkipTimerFrames = GOAL_SKIP_TOTAL_FRAMES;
     startGoal(this.ball);
+
+    // TODO: make this a gamemode thing
+    if (this.multiplayerClient) {
+      this.multiplayerClient.sendGoalReached(goalType);
+    }
+
     void this.audio?.playGoal(this.gameSource);
     void this.audio?.playAnnouncerGoal(0.5);
     if (this.audio && this.stageTimeLimitFrames > 0) {

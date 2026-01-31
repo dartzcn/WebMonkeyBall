@@ -15,6 +15,8 @@ export enum MessageType {
   LEAVE = 'leave',
   STATE_SYNC = 'state_sync',
   BANANA_COLLECTED = 'banana_collected',
+  GOAL_REACHED = 'goal_reached',
+  BONUS_CLEAR = 'bonus_clear',
 
   // server -> client
   JOINED = 'joined',
@@ -60,6 +62,12 @@ export interface StateSyncData {
     animGroupId: number;
     pressed: boolean;
   }>;
+  courseState?: {
+    currentIndex?: number;
+    currentFloor?: number;
+    currentStageName?: string;
+    scriptIndex?: number;
+  };
 }
 
 export interface JoinMessage {
@@ -87,6 +95,7 @@ export interface JoinedMessage {
   roomId: string;
   isHost: boolean;
   players: PlayerInfo[];
+  stageState: StateSyncData | null;
 }
 
 export interface PlayerJoinedMessage {
@@ -130,6 +139,17 @@ export interface BananaCollectedMessage {
   index: number;
 }
 
+export interface GoalReachedMessage {
+  type: MessageType.GOAL_REACHED;
+  version: number;
+  goalType: string;
+}
+
+export interface BonusClearMessage {
+  type: MessageType.BONUS_CLEAR;
+  version: number;
+}
+
 export type ServerMessage =
   | JoinedMessage
   | PlayerJoinedMessage
@@ -137,4 +157,6 @@ export type ServerMessage =
   | HostChangedMessage
   | SyncStateMessage
   | BananaCollectedMessage
+  | GoalReachedMessage
+  | BonusClearMessage
   | ErrorMessage;

@@ -5,6 +5,8 @@ import {
   type LeaveMessage,
   type StateSyncMessage,
   type BananaCollectedMessage,
+  type GoalReachedMessage,
+  type BonusClearMessage,
   MessageType,
   ErrorCode,
   PROTOCOL_VERSION,
@@ -103,11 +105,19 @@ export class MultiplayerServer {
         break;
 
       case MessageType.STATE_SYNC:
-        this.handleStateSync(message as StateSyncMessage);
+        this.handleStateSync(message as StateSyncMessage, playerId);
         break;
 
       case MessageType.BANANA_COLLECTED:
         this.handleBananaCollected(message as BananaCollectedMessage, playerId);
+        break;
+
+      case MessageType.GOAL_REACHED:
+        this.handleGoalReached(message as GoalReachedMessage, playerId);
+        break;
+
+      case MessageType.BONUS_CLEAR:
+        this.handleBonusClear(message as BonusClearMessage, playerId);
         break;
 
       default:
@@ -141,8 +151,13 @@ export class MultiplayerServer {
     // stub
   }
 
-  private handleStateSync(message: StateSyncMessage): void {
-    // stub
+  private handleStateSync(message: StateSyncMessage, playerId: string | null): void {
+    if (!playerId) {
+      console.warn('state sync but no playerId?');
+      return;
+    }
+    console.log(`state sync from ${playerId.slice(0, 8)}: stageId=${message.data.stageId}`);
+    this.roomManager.broadcastStateSync(playerId, message.data);
   }
 
   private handleBananaCollected(message: BananaCollectedMessage, playerId: string | null): void {
@@ -152,6 +167,24 @@ export class MultiplayerServer {
     }
     console.log(`banana collected: animGroupId=${message.animGroupId}, index=${message.index}`);
     this.roomManager.broadcastBananaCollected(playerId, message.animGroupId, message.index);
+  }
+
+  private handleGoalReached(message: GoalReachedMessage, playerId: string | null): void {
+    if (!playerId) {
+      console.warn('goal reached but no playerId?');
+      return;
+    }
+    console.log(`goal reached: goalType=${message.goalType}`);
+    this.roomManager.broadcastGoalReached(playerId, message.goalType);
+  }
+
+  private handleBonusClear(message: BonusClearMessage, playerId: string | null): void {
+    if (!playerId) {
+      console.warn('bonus clear but no playerId?');
+      return;
+    }
+    console.log(`bonus clear from player ${playerId.slice(0, 8)}`);
+    this.roomManager.broadcastBonusClear(playerId);
   }
 
   private sendError(socket: any, code: ErrorCode, message: string): void {
